@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSDN 企业邮箱批量发送工具</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg: #F3F6FD;
+    --card: #ffffff;
+    --primary: #3B78F9;
+    --primary-light: #E7EEFF;
+    --primary-hover: #2B5FD9;
+    --gradient: linear-gradient(270deg, #04C1FF 0%, #525AF7 100%);
+    --danger: #E5534B;
+    --danger-light: #FFF0EE;
+    --success: #2DA44E;
+    --success-light: #DAFBE1;
+    --warning: #F9AB00;
+    --text: #1F2328;
+    --text-secondary: #656D76;
+    --text-tertiary: #8B949E;
+    --border: #D0D7DE;
+    --border-light: #E8ECF2;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow-sm: 0 1px 3px rgba(31,35,40,0.04);
+    --shadow: 0 2px 8px rgba(31,35,40,0.06);
+    --shadow-lg: 0 8px 24px rgba(31,35,40,0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* Header */
+  .app-header {
+    background: #fff;
+    border-bottom: 1px solid var(--border-light);
+    padding: 0 24px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow-sm);
+  }
+  .header-inner {
+    max-width: 920px;
+    margin: 0 auto;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .header-logo svg { flex-shrink: 0; }
+  .header-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .header-badge {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--primary);
+    background: var(--primary-light);
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  /* Container */
+  .container {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+
+  /* Card */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border-light);
+    padding: 24px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.2s;
+  }
+  .card:hover { box-shadow: var(--shadow); }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--gradient);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .card-icon {
+    margin-left: auto;
+    color: var(--text-tertiary);
+  }
+
+  /* Form */
+  .form-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .form-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .form-group label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background: #fff;
+  }
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59,120,249,0.12);
+  }
+  .form-group input::placeholder,
+  .form-group textarea::placeholder {
+    color: var(--text-tertiary);
+  }
+  .form-group textarea {
+    min-height: 140px;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 13px;
+    resize: vertical;
+    line-height: 1.7;
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 18px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn svg { flex-shrink: 0; }
+  .btn-primary {
+    background: var(--gradient);
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(82,90,247,0.2);
+  }
+  .btn-primary:hover {
+    opacity: 0.92;
+    box-shadow: 0 2px 8px rgba(82,90,247,0.3);
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  .btn-outline {
+    background: #fff;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+  }
+  .btn-outline:hover {
+    background: var(--primary-light);
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover {
+    background: #f6f8fa;
+    border-color: var(--text-tertiary);
+  }
+  .btn-danger-ghost {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+  }
+  .btn-danger-ghost:hover {
+    background: var(--danger-light);
+  }
+  .btn-sm {
+    padding: 5px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 36px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    background: #FAFBFC;
+  }
+  .upload-zone:hover,
+  .upload-zone.dragover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+  }
+  .upload-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .upload-icon {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 10px;
+    color: var(--text-tertiary);
+  }
+  .upload-zone .upload-text {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 400;
+  }
+  .upload-zone .upload-hint {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+  }
+
+  /* File info */
+  .file-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--success-light);
+    border-radius: var(--radius-sm);
+    margin-bottom: 14px;
+  }
+  .file-info svg { flex-shrink: 0; color: var(--success); }
+  .file-info .name {
+    font-weight: 500;
+    font-size: 14px;
+    flex: 1;
+  }
+  .file-info .count {
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table th {
+    background: #F6F8FA;
+    font-weight: 600;
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  table td {
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border-light);
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text);
+  }
+  table tr:hover td { background: #F6F8FA; }
+  .table-wrap {
+    overflow-x: auto;
+    max-height: 280px;
+    overflow-y: auto;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+  }
+
+  /* Variable tags */
+  .var-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .var-tag {
+    display: inline-block;
+    padding: 3px 12px;
+    background: var(--primary-light);
+    color: var(--primary);
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+    border: 1px solid transparent;
+  }
+  .var-tag:hover {
+    background: var(--primary);
+    color: #fff;
+  }
+
+  /* Template buttons */
+  .template-list {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .template-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: #fff;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .template-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--primary-light);
+  }
+  .template-btn svg { width: 14px; height: 14px; }
+
+  /* Progress */
+  .progress-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--border-light);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 14px 0;
+  }
+  .progress-bar .fill {
+    height: 100%;
+    background: var(--gradient);
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
+
+  /* Status badge */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .status-badge.success { background: var(--success-light); color: var(--success); }
+  .status-badge.failed { background: var(--danger-light); color: var(--danger); }
+  .status-badge.skipped { background: #FFF8C5; color: #9A6700; }
+
+  /* Result summary */
+  .result-summary {
+    display: flex;
+    gap: 32px;
+    margin: 18px 0;
+    padding: 16px 0;
+    border-top: 1px solid var(--border-light);
+    border-bottom: 1px solid var(--border-light);
+  }
+  .result-summary .item { text-align: center; }
+  .result-summary .num {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .result-summary .label {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    font-weight: 500;
+    margin-top: 2px;
+  }
+
+  /* Preview */
+  .preview-frame {
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    margin-top: 14px;
+  }
+  .preview-frame iframe {
+    width: 100%;
+    height: 400px;
+    border: none;
+  }
+
+  /* Hint */
+  .hint {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+
+  /* Actions */
+  .actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    align-items: center;
+  }
+
+  .hidden { display: none !important; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    top: 72px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 18px;
+    border-radius: var(--radius-sm);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 1000;
+    box-shadow: var(--shadow-lg);
+    animation: toastIn 0.3s ease;
+  }
+  .toast.success { background: var(--success); }
+  .toast.error { background: var(--danger); }
+  @keyframes toastIn {
+    from { transform: translateY(-12px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  /* Checkbox */
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0;
+  }
+  .checkbox-row input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+  }
+  .checkbox-row label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+
+  /* Attachment */
+  .attach-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 28px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    background: #FAFBFC;
+  }
+  .attach-zone:hover,
+  .attach-zone.dragover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+  }
+  .attach-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .attach-list { margin-top: 10px; }
+  .attach-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #F6F8FA;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    font-size: 13px;
+    transition: background 0.15s;
+  }
+  .attach-item:hover { background: #EEF1F5; }
+  .attach-item svg { flex-shrink: 0; color: var(--text-tertiary); }
+  .attach-item .name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 400;
+  }
+  .attach-item .size {
+    color: var(--text-tertiary);
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .attach-item .del-btn {
+    color: var(--text-tertiary);
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 2px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    transition: all 0.15s;
+  }
+  .attach-item .del-btn:hover {
+    color: var(--danger);
+    background: var(--danger-light);
+  }
+  .attach-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="app-header">
+  <div class="header-inner">
+    <div class="header-logo">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="6" fill="url(#hg)"/>
+        <path d="M8 9.5h12M8 14h8M8 18.5h10" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+        <defs><linearGradient id="hg" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#525AF7"/><stop offset="1" stop-color="#04C1FF"/></linearGradient></defs>
+      </svg>
+      <span class="header-title">CSDN 企业邮箱批量发送工具</span>
+    </div>
+    <span class="header-badge">SMTP</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Step 1: SMTP -->
+  <div class="card">
+    <div class="card-header">
+      <span class="step-num">1</span>
+      <span class="card-title">SMTP 邮箱配置</span>
+      <span class="card-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      </span>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>SMTP 服务器</label>
+        <input type="text" id="smtpHost" value="smtp.exmail.qq.com" placeholder="smtp.exmail.qq.com">
+      </div>
+      <div class="form-group" style="max-width:130px">
+        <label>端口</label>
+        <select id="smtpPort">
+          <option value="465" selected>465 (SSL)</option>
+          <option value="587">587 (TLS)</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>发件人邮箱</label>
+        <input type="email" id="senderEmail" placeholder="your-name@csdn.net">
+      </div>
+      <div class="form-group">
+        <label>邮箱密码 / 授权码</label>
+        <input type="password" id="senderPassword" placeholder="企业微信邮箱密码或客户端专用密码">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="max-width:180px">
+        <label>发件人名称</label>
+        <input type="text" id="senderName" value="CSDN" placeholder="显示名称">
+      </div>
+      <div class="form-group" style="max-width:120px">
+        <label>发送间隔(秒)</label>
+        <input type="number" id="sendDelay" value="2" min="0.5" step="0.5">
+      </div>
+      <div class="form-group" style="flex:0;align-self:flex-end">
+        <button class="btn btn-outline btn-sm" onclick="testSmtp()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4z"/></svg>
+          测试连接
+        </button>
+      </div>
+    </div>
+    <p class="hint">企业微信邮箱默认使用 smtp.exmail.qq.com:465 (SSL)，密码为邮箱登录密码或客户端专用密码。</p>
+  </div>
+
+  <!-- Step 2: Upload -->
+  <div class="card">
+    <div class="card-header">
+      <span class="step-num">2</span>
+      <span class="card-title">上传收件人名单</span>
+    </div>
+    <div id="uploadZone" class="upload-zone">
+      <input type="file" id="fileInput" accept=".xls,.xlsx,.csv">
+      <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <p class="upload-text">点击或拖拽上传 Excel / CSV 文件</p>
+      <p class="upload-hint">支持 .xls / .xlsx / .csv 格式，文件需包含邮箱列</p>
+    </div>
+
+    <div id="fileInfoSection" class="hidden">
+      <div class="file-info">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span class="name" id="fileName"></span>
+        <span class="count" id="rowCount"></span>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group" style="max-width:200px">
+          <label>邮箱所在列</label>
+          <select id="emailCol"></select>
+        </div>
+        <div class="form-group" style="max-width:200px">
+          <label>附件文件名列（可选）</label>
+          <select id="attachCol">
+            <option value="">不发送附件</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="previewTable">
+          <thead><tr id="previewHead"></tr></thead>
+          <tbody id="previewBody"></tbody>
+        </table>
+      </div>
+      <p class="hint" style="margin-top:6px">预览前 10 行数据，请确认邮箱列选择正确</p>
+    </div>
+  </div>
+
+  <!-- Step 3: Attachments -->
+  <div class="card" id="attachCard">
+    <div class="card-header">
+      <span class="step-num">3</span>
+      <span class="card-title">上传附件文件（可选）</span>
+    </div>
+    <p class="hint" style="margin-bottom:12px">将名单中「附件文件名列」对应的文件上传到这里，发送时自动按文件名匹配。多个附件用逗号分隔。</p>
+
+    <div class="attach-zone" id="attachZone">
+      <input type="file" id="attachInput" multiple>
+      <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+      <p class="upload-text">点击或拖拽上传附件（支持多选）</p>
+      <p class="upload-hint">PDF、Word、图片等任意格式</p>
+    </div>
+
+    <div class="attach-list" id="attachList"></div>
+    <div class="attach-summary" id="attachSummary" style="display:none">
+      <span class="hint" id="attachCount"></span>
+      <button class="btn btn-danger-ghost btn-sm" onclick="clearAttachments()">清空全部</button>
+    </div>
+  </div>
+
+  <!-- Step 4: Email content -->
+  <div class="card">
+    <div class="card-header">
+      <span class="step-num">4</span>
+      <span class="card-title">编辑邮件内容</span>
+    </div>
+
+    <p class="hint" style="margin-bottom:8px">点击变量标签插入到正文，发送时自动替换为每行对应的值</p>
+    <div class="var-tags" id="varTags"></div>
+
+    <div class="form-group" style="margin-top:14px">
+      <label>邮件主题</label>
+      <input type="text" id="emailSubject" placeholder="例：BuilderX 2026 大赛参赛提醒 - {{姓名}}">
+    </div>
+
+    <div style="margin-top:14px">
+      <label style="font-size:13px;font-weight:500;color:var(--text-secondary)">快速模板</label>
+      <div class="template-list" style="margin-top:6px">
+        <button class="template-btn" onclick="loadTemplate('remind')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          参赛提醒
+        </button>
+        <button class="template-btn" onclick="loadTemplate('confirm')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          报名确认
+        </button>
+        <button class="template-btn" onclick="loadTemplate('result')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+          结果通知
+        </button>
+        <button class="template-btn" onclick="loadTemplate('custom')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          空白模板
+        </button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>邮件正文 (HTML)</label>
+      <textarea id="emailBody" rows="15" placeholder="在此编辑 HTML 邮件正文..."></textarea>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-ghost btn-sm" onclick="previewEmail()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        预览邮件
+      </button>
+    </div>
+
+    <div id="previewSection" class="preview-frame hidden">
+      <iframe id="previewIframe"></iframe>
+    </div>
+  </div>
+
+  <!-- Step 5: Send -->
+  <div class="card">
+    <div class="card-header">
+      <span class="step-num">5</span>
+      <span class="card-title">确认发送</span>
+    </div>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="confirmCheck">
+      <label for="confirmCheck">我已确认收件人名单、邮件内容无误，开始发送</label>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="sendBtn" onclick="startSend()" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4z"/></svg>
+        开始批量发送
+      </button>
+      <span id="sendHint" class="hint"></span>
+    </div>
+
+    <div id="progressSection" class="hidden" style="margin-top:16px">
+      <div class="progress-bar">
+        <div class="fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <p id="progressText" style="font-size:13px;color:var(--text-secondary)"></p>
+
+      <div class="result-summary" id="resultSummary" style="display:none">
+        <div class="item">
+          <div class="num" id="totalNum" style="color:var(--text)">0</div>
+          <div class="label">总计</div>
+        </div>
+        <div class="item">
+          <div class="num" id="successNum" style="color:var(--success)">0</div>
+          <div class="label">成功</div>
+        </div>
+        <div class="item">
+          <div class="num" id="failedNum" style="color:var(--danger)">0</div>
+          <div class="label">失败</div>
+        </div>
+      </div>
+
+      <div class="table-wrap" id="resultTableWrap" style="display:none;margin-top:12px">
+        <table>
+          <thead><tr><th>序号</th><th>邮箱</th><th>状态</th><th>信息</th></tr></thead>
+          <tbody id="resultBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Global State ──
+let uploadedFilename = "";
+let allHeaders = [];
+let allRows = [];
+let currentTaskId = null;
+let pollTimer = null;
+
+// ── Load env defaults ──
+(async function loadDefaults() {
+  try {
+    const res = await fetch("/api/defaults");
+    const defaults = await res.json();
+    if (defaults.smtp_host) document.getElementById("smtpHost").value = defaults.smtp_host;
+    if (defaults.smtp_port) document.getElementById("smtpPort").value = defaults.smtp_port;
+    if (defaults.email) document.getElementById("senderEmail").value = defaults.email;
+    if (defaults.sender_name) document.getElementById("senderName").value = defaults.sender_name;
+    if (defaults.password_set) {
+      document.getElementById("senderPassword").placeholder = "已从环境变量读取（如需更改请输入新密码）";
+      document.getElementById("senderPassword").dataset.envSet = "true";
+    }
+  } catch (e) {
+    console.warn("加载默认配置失败:", e);
+  }
+})();
+
+// ── File Upload ──
+const fileInput = document.getElementById("fileInput");
+const uploadZone = document.getElementById("uploadZone");
+
+uploadZone.addEventListener("dragover", e => {
+  e.preventDefault();
+  uploadZone.classList.add("dragover");
+});
+uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("dragover"));
+uploadZone.addEventListener("drop", e => {
+  e.preventDefault();
+  uploadZone.classList.remove("dragover");
+  if (e.dataTransfer.files.length) {
+    fileInput.files = e.dataTransfer.files;
+    handleFileUpload(e.dataTransfer.files[0]);
+  }
+});
+fileInput.addEventListener("change", () => {
+  if (fileInput.files.length) handleFileUpload(fileInput.files[0]);
+});
+
+async function handleFileUpload(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const res = await fetch("/api/upload", { method: "POST", body: formData });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, "error"); return; }
+
+    uploadedFilename = data.filename;
+    allHeaders = data.headers;
+
+    document.getElementById("fileName").textContent = data.filename;
+    document.getElementById("rowCount").textContent = data.totalRows + " 条记录";
+    document.getElementById("fileInfoSection").classList.remove("hidden");
+
+    const emailCol = document.getElementById("emailCol");
+    emailCol.innerHTML = "";
+    data.headers.forEach(h => {
+      const opt = document.createElement("option");
+      opt.value = h;
+      opt.textContent = h;
+      if (/邮箱|email|mail/i.test(h)) opt.selected = true;
+      emailCol.appendChild(opt);
+    });
+
+    const attachCol = document.getElementById("attachCol");
+    attachCol.innerHTML = '<option value="">不发送附件</option>';
+    data.headers.forEach(h => {
+      const opt = document.createElement("option");
+      opt.value = h;
+      opt.textContent = h;
+      if (/附件|文件名|filename|attachment/i.test(h)) opt.selected = true;
+      attachCol.appendChild(opt);
+    });
+
+    renderPreviewTable(data.headers, data.preview);
+    renderVarTags(data.headers);
+
+    const allRes = await fetch("/api/parse-all", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: data.filename }),
+    });
+    const allData = await allRes.json();
+    allRows = allData.rows || [];
+
+    showToast("成功加载 " + allRows.length + " 条记录", "success");
+  } catch (e) {
+    showToast("上传失败: " + e.message, "error");
+  }
+}
+
+function renderPreviewTable(headers, rows) {
+  const head = document.getElementById("previewHead");
+  const body = document.getElementById("previewBody");
+  head.innerHTML = headers.map(h => "<th>" + h + "</th>").join("");
+  body.innerHTML = rows.map(row =>
+    "<tr>" + headers.map(h => '<td title="' + (row[h] || '') + '">' + (row[h] || '') + "</td>").join("") + "</tr>"
+  ).join("");
+}
+
+function renderVarTags(headers) {
+  const container = document.getElementById("varTags");
+  container.innerHTML = headers.map(h =>
+    '<span class="var-tag" onclick="insertVar(\'' + h + '\')">{{' + h + '}}</span>'
+  ).join("");
+}
+
+function insertVar(name) {
+  const textarea = document.getElementById("emailBody");
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  const insert = "{{" + name + "}}";
+  textarea.value = text.substring(0, start) + insert + text.substring(end);
+  textarea.selectionStart = textarea.selectionEnd = start + insert.length;
+  textarea.focus();
+}
+
+// ── Templates ──
+const TEMPLATES = {
+  remind: {
+    subject: "【BuilderX 2026】大赛参赛提醒 - {{姓名}}",
+    body: '<div style="max-width:600px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;color:#333;">\n  <div style="background:linear-gradient(135deg,#525AF7,#04C1FF);padding:32px 24px;border-radius:12px 12px 0 0;text-align:center;">\n    <h1 style="color:#fff;margin:0;font-size:22px;">BuilderX 2026 智能硬件创新大赛</h1>\n    <p style="color:rgba(255,255,255,0.85);margin-top:8px;font-size:14px;">参赛提醒通知</p>\n  </div>\n  <div style="padding:24px;background:#fff;border:1px solid #e0e0e0;border-top:none;">\n    <p>Hi {{姓名}}，</p>\n    <p>感谢您报名参加 <strong>BuilderX 2026 智能硬件创新大赛</strong>！</p>\n    <p>以下是几项重要提醒：</p>\n    <ul style="padding-left:20px;line-height:2;">\n      <li><strong>作品提交截止日期</strong>：2026年5月15日 23:59</li>\n      <li>请确保您的参赛作品包含完整的项目说明和演示视频</li>\n      <li>如需组队，请在大赛官网完成队伍信息填写</li>\n      <li>加入参赛交流群获取最新动态和技术支持</li>\n    </ul>\n    <div style="text-align:center;margin:24px 0;">\n      <a href="https://builderx.csdn.net" style="display:inline-block;padding:12px 32px;background:linear-gradient(270deg,#04C1FF,#525AF7);color:#fff;text-decoration:none;border-radius:6px;font-weight:500;">前往大赛官网</a>\n    </div>\n    <p style="color:#666;font-size:13px;">如有任何问题，请回复此邮件或联系大赛组委会。</p>\n    <p>祝参赛顺利！<br>CSDN BuilderX 组委会</p>\n  </div>\n  <div style="padding:16px 24px;background:#f8f9fa;border-radius:0 0 12px 12px;text-align:center;font-size:12px;color:#999;border:1px solid #e0e0e0;border-top:none;">\n    此邮件由 CSDN BuilderX 大赛组委会发送 | <a href="https://csdn.net" style="color:#999;">csdn.net</a>\n  </div>\n</div>'
+  },
+  confirm: {
+    subject: "【BuilderX 2026】报名确认 - {{姓名}}",
+    body: '<div style="max-width:600px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;color:#333;">\n  <div style="background:linear-gradient(135deg,#2DA44E,#3FB950);padding:32px 24px;border-radius:12px 12px 0 0;text-align:center;">\n    <h1 style="color:#fff;margin:0;font-size:22px;">报名成功确认</h1>\n    <p style="color:rgba(255,255,255,0.85);margin-top:8px;font-size:14px;">BuilderX 2026 智能硬件创新大赛</p>\n  </div>\n  <div style="padding:24px;background:#fff;border:1px solid #e0e0e0;border-top:none;">\n    <p>Hi {{姓名}}，</p>\n    <p>恭喜！您已成功报名 <strong>BuilderX 2026 智能硬件创新大赛</strong>。</p>\n    <p>您的报名信息如下：</p>\n    <table style="width:100%;border-collapse:collapse;margin:16px 0;">\n      <tr style="background:#f8f9fa;"><td style="padding:8px 12px;border:1px solid #e0e0e0;font-weight:500;">姓名</td><td style="padding:8px 12px;border:1px solid #e0e0e0;">{{姓名}}</td></tr>\n      <tr><td style="padding:8px 12px;border:1px solid #e0e0e0;font-weight:500;">邮箱</td><td style="padding:8px 12px;border:1px solid #e0e0e0;">{{邮箱}}</td></tr>\n    </table>\n    <p>接下来您可以：</p>\n    <ul style="padding-left:20px;line-height:2;">\n      <li>完善个人/团队信息</li>\n      <li>查看大赛规则和评审标准</li>\n      <li>加入参赛者交流群</li>\n    </ul>\n    <p style="color:#666;font-size:13px;">如有疑问请回复此邮件。</p>\n    <p>CSDN BuilderX 组委会</p>\n  </div>\n</div>'
+  },
+  result: {
+    subject: "【BuilderX 2026】评审结果通知 - {{姓名}}",
+    body: '<div style="max-width:600px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;color:#333;">\n  <div style="background:linear-gradient(135deg,#F9AB00,#FBBC04);padding:32px 24px;border-radius:12px 12px 0 0;text-align:center;">\n    <h1 style="color:#fff;margin:0;font-size:22px;">评审结果通知</h1>\n    <p style="color:rgba(255,255,255,0.85);margin-top:8px;font-size:14px;">BuilderX 2026 智能硬件创新大赛</p>\n  </div>\n  <div style="padding:24px;background:#fff;border:1px solid #e0e0e0;border-top:none;">\n    <p>Hi {{姓名}}，</p>\n    <p>感谢您参加 BuilderX 2026 智能硬件创新大赛！</p>\n    <p>经过评审委员会的认真评选，现将结果通知如下：</p>\n    <div style="background:#f8f9fa;padding:16px;border-radius:8px;margin:16px 0;text-align:center;">\n      <p style="font-size:18px;font-weight:600;">请查看大赛官网获取详细结果</p>\n    </div>\n    <p>无论结果如何，您在比赛中展现的创新精神和技术实力都值得肯定。</p>\n    <p>期待在未来的活动中再次见到您！</p>\n    <p>CSDN BuilderX 组委会</p>\n  </div>\n</div>'
+  },
+  custom: {
+    subject: "",
+    body: '<div style="max-width:600px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;color:#333;padding:24px;">\n  <p>Hi {{姓名}}，</p>\n  <p>在此编辑您的邮件内容...</p>\n  <p>此致<br>CSDN</p>\n</div>'
+  }
+};
+
+function loadTemplate(key) {
+  const tpl = TEMPLATES[key];
+  if (!tpl) return;
+  document.getElementById("emailSubject").value = tpl.subject;
+  document.getElementById("emailBody").value = tpl.body;
+  showToast("已加载模板", "success");
+}
+
+// ── Preview ──
+function previewEmail() {
+  const body = document.getElementById("emailBody").value;
+  if (!body.trim()) { showToast("请先编辑邮件正文", "error"); return; }
+
+  let preview = body;
+  if (allRows.length > 0) {
+    const first = allRows[0];
+    for (const [k, v] of Object.entries(first)) {
+      preview = preview.replaceAll("{{" + k + "}}", v);
+    }
+  }
+
+  const section = document.getElementById("previewSection");
+  section.classList.remove("hidden");
+  document.getElementById("previewIframe").srcdoc = preview;
+}
+
+// ── SMTP Test ──
+async function testSmtp() {
+  const data = {
+    smtp_host: document.getElementById("smtpHost").value,
+    smtp_port: document.getElementById("smtpPort").value,
+    email: document.getElementById("senderEmail").value,
+    password: document.getElementById("senderPassword").value,
+  };
+
+  try {
+    const res = await fetch("/api/test-smtp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    showToast(result.message, result.success ? "success" : "error");
+  } catch (e) {
+    showToast("测试失败: " + e.message, "error");
+  }
+}
+
+// ── Confirm checkbox ──
+document.getElementById("confirmCheck").addEventListener("change", function() {
+  document.getElementById("sendBtn").disabled = !this.checked;
+});
+
+// ── Send ──
+async function startSend() {
+  if (!allRows.length) { showToast("请先上传收件人名单", "error"); return; }
+  if (!document.getElementById("emailSubject").value.trim()) { showToast("请填写邮件主题", "error"); return; }
+  if (!document.getElementById("emailBody").value.trim()) { showToast("请填写邮件正文", "error"); return; }
+
+  const payload = {
+    smtp_host: document.getElementById("smtpHost").value,
+    smtp_port: document.getElementById("smtpPort").value,
+    email: document.getElementById("senderEmail").value,
+    password: document.getElementById("senderPassword").value,
+    sender_name: document.getElementById("senderName").value,
+    subject: document.getElementById("emailSubject").value,
+    body_html: document.getElementById("emailBody").value,
+    recipients: allRows,
+    email_col: document.getElementById("emailCol").value,
+    attach_col: document.getElementById("attachCol").value,
+    delay: document.getElementById("sendDelay").value,
+  };
+
+  const btn = document.getElementById("sendBtn");
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> 发送中...';
+  document.getElementById("progressSection").classList.remove("hidden");
+  document.getElementById("resultSummary").style.display = "none";
+  document.getElementById("resultTableWrap").style.display = "none";
+
+  try {
+    const res = await fetch("/api/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, "error"); resetSendBtn(); return; }
+
+    currentTaskId = data.task_id;
+    pollProgress();
+  } catch (e) {
+    showToast("发送请求失败: " + e.message, "error");
+    resetSendBtn();
+  }
+}
+
+function pollProgress() {
+  if (!currentTaskId) return;
+
+  pollTimer = setInterval(async () => {
+    try {
+      const res = await fetch("/api/send-status/" + currentTaskId);
+      const data = await res.json();
+
+      const total = data.total;
+      const done = data.sent + data.failed;
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+      document.getElementById("progressFill").style.width = pct + "%";
+      document.getElementById("progressText").textContent =
+        "已处理 " + done + " / " + total + "（成功 " + data.sent + "，失败 " + data.failed + "）";
+
+      if (data.status === "done") {
+        clearInterval(pollTimer);
+        pollTimer = null;
+
+        document.getElementById("resultSummary").style.display = "flex";
+        document.getElementById("totalNum").textContent = total;
+        document.getElementById("successNum").textContent = data.sent;
+        document.getElementById("failedNum").textContent = data.failed;
+
+        const tbody = document.getElementById("resultBody");
+        tbody.innerHTML = data.results.map(r =>
+          "<tr>" +
+            "<td>" + (r.index >= 0 ? r.index + 1 : "-") + "</td>" +
+            "<td>" + r.email + "</td>" +
+            '<td><span class="status-badge ' + r.status + '">' +
+              (r.status === "success" ? "成功" : r.status === "failed" ? "失败" : r.status === "skipped" ? "跳过" : "错误") +
+            "</span></td>" +
+            '<td title="' + r.message + '">' + r.message + "</td>" +
+          "</tr>"
+        ).join("");
+        document.getElementById("resultTableWrap").style.display = "block";
+
+        resetSendBtn();
+        showToast("发送完成 - 成功 " + data.sent + "，失败 " + data.failed, data.failed > 0 ? "error" : "success");
+      }
+    } catch (e) {
+      console.error("轮询失败:", e);
+    }
+  }, 1000);
+}
+
+function resetSendBtn() {
+  const btn = document.getElementById("sendBtn");
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4z"/></svg> 开始批量发送';
+  btn.disabled = !document.getElementById("confirmCheck").checked;
+}
+
+// ── Toast ──
+function showToast(msg, type) {
+  type = type || "success";
+  const toast = document.createElement("div");
+  toast.className = "toast " + type;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(function() { toast.remove(); }, 3500);
+}
+
+// ── Attachment Upload ──
+const attachInput = document.getElementById("attachInput");
+const attachZone = document.getElementById("attachZone");
+
+attachZone.addEventListener("dragover", e => {
+  e.preventDefault();
+  attachZone.classList.add("dragover");
+});
+attachZone.addEventListener("dragleave", () => attachZone.classList.remove("dragover"));
+attachZone.addEventListener("drop", e => {
+  e.preventDefault();
+  attachZone.classList.remove("dragover");
+  if (e.dataTransfer.files.length) {
+    uploadAttachments(e.dataTransfer.files);
+  }
+});
+attachInput.addEventListener("change", () => {
+  if (attachInput.files.length) uploadAttachments(attachInput.files);
+});
+
+async function uploadAttachments(files) {
+  const formData = new FormData();
+  for (const f of files) {
+    formData.append("files", f);
+  }
+
+  try {
+    const res = await fetch("/api/upload-attachments", { method: "POST", body: formData });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, "error"); return; }
+
+    renderAttachList(data.all_files);
+    showToast("已上传 " + data.uploaded + " 个附件", "success");
+  } catch (e) {
+    showToast("附件上传失败: " + e.message, "error");
+  }
+
+  attachInput.value = "";
+}
+
+function renderAttachList(files) {
+  const list = document.getElementById("attachList");
+  const summary = document.getElementById("attachSummary");
+
+  if (!files.length) {
+    list.innerHTML = "";
+    summary.style.display = "none";
+    return;
+  }
+
+  list.innerHTML = files.map(f =>
+    '<div class="attach-item">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
+      '<span class="name" title="' + f.name + '">' + f.name + '</span>' +
+      '<span class="size">' + f.size + '</span>' +
+      '<button class="del-btn" onclick="deleteAttachment(\'' + f.name.replace(/'/g, "\\'") + '\')" title="删除">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+      '</button>' +
+    '</div>'
+  ).join("");
+
+  summary.style.display = "flex";
+  document.getElementById("attachCount").textContent = "共 " + files.length + " 个附件文件";
+}
+
+async function deleteAttachment(name) {
+  try {
+    const res = await fetch("/api/attachments/" + encodeURIComponent(name), { method: "DELETE" });
+    const data = await res.json();
+    renderAttachList(data.files);
+  } catch (e) {
+    showToast("删除失败: " + e.message, "error");
+  }
+}
+
+async function clearAttachments() {
+  if (!confirm("确定清空所有附件？")) return;
+  try {
+    const res = await fetch("/api/clear-attachments", { method: "POST" });
+    const data = await res.json();
+    renderAttachList(data.files);
+    showToast("已清空所有附件", "success");
+  } catch (e) {
+    showToast("清空失败: " + e.message, "error");
+  }
+}
+
+// Load existing attachments on page load
+(async function loadExistingAttachments() {
+  try {
+    const res = await fetch("/api/attachments");
+    const data = await res.json();
+    if (data.files && data.files.length) renderAttachList(data.files);
+  } catch (e) { /* ignore */ }
+})();
+</script>
+</body>
+</html>

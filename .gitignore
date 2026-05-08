@@ -1,0 +1,17 @@
+# 环境变量 / 密钥
+.env
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 运行时目录
+uploads/
+attachments/
+
+# 敏感业务数据 - 不提交真实选手资料和邮件列表
+files/
+testlist/
+
+# 系统文件
+.DS_Store
