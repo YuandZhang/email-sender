@@ -1,25 +1,32 @@
 """
 批量邮件发送工具 - 企业微信邮箱版
 通过企业微信邮箱 SMTP 批量发送个性化邮件
+支持通过 IMAP 拉取收件箱并按日期导出为 Excel
 """
 
 import os
 import json
 import smtplib
+import imaplib
+import email as email_mod
 import time
 import uuid
 import mimetypes
 import traceback
+import re
+from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
-from email.header import Header
+from email.header import Header, decode_header
+from email.utils import parsedate_to_datetime, parseaddr
 from email import encoders
 from pathlib import Path
 
 import xlrd
 import openpyxl
-from flask import Flask, request, jsonify, send_from_directory
+from openpyxl.styles import Font, Alignment, PatternFill
+from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 from dotenv import load_dotenv
 
@@ -35,8 +42,14 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 ATTACH_DIR = Path(__file__).parent / "attachments"
 ATTACH_DIR.mkdir(exist_ok=True)
 
+EXPORT_DIR = Path(__file__).parent / "exports"
+EXPORT_DIR.mkdir(exist_ok=True)
+
 # 全局发送状态追踪
 send_tasks = {}
+
+# 全局收件箱导出任务追踪
+inbox_tasks = {}
 
 
 # ── 静态页面 ──────────────────────────────────────────────────────────────────
@@ -50,6 +63,8 @@ def get_defaults():
         "email": os.environ.get("SENDER_EMAIL", ""),
         "password_set": bool(os.environ.get("SENDER_PASSWORD")),
         "sender_name": os.environ.get("SENDER_NAME", "CSDN"),
+        "imap_host": os.environ.get("IMAP_HOST", "imap.exmail.qq.com"),
+        "imap_port": os.environ.get("IMAP_PORT", "993"),
     })
 
 
@@ -403,6 +418,359 @@ def test_smtp():
         return jsonify({"success": True, "message": "SMTP 连接成功！"})
     except Exception as e:
         return jsonify({"success": False, "message": f"连接失败: {e}"})
+
+
+# ── 收件箱导出 (IMAP) ────────────────────────────────────────────────────────
+
+@app.route("/api/test-imap", methods=["POST"])
+def test_imap():
+    """测试 IMAP 连接"""
+    data = request.json or {}
+    imap_host = data.get("imap_host") or os.environ.get("IMAP_HOST", "imap.exmail.qq.com")
+    imap_port = int(data.get("imap_port") or os.environ.get("IMAP_PORT", 993))
+    email_addr = data.get("email") or os.environ.get("SENDER_EMAIL", "")
+    password = data.get("password") or os.environ.get("SENDER_PASSWORD", "")
+
+    if not email_addr or not password:
+        return jsonify({"success": False, "message": "请填写邮箱和密码"}), 400
+
+    try:
+        imap = imaplib.IMAP4_SSL(imap_host, imap_port, timeout=15)
+        imap.login(email_addr, password)
+        imap.select("INBOX", readonly=True)
+        imap.logout()
+        return jsonify({"success": True, "message": "IMAP 连接成功"})
+    except Exception as e:
+        return jsonify({"success": False, "message": f"连接失败: {e}"}), 200
+
+
+@app.route("/api/export-inbox", methods=["POST"])
+def export_inbox():
+    """按日期范围拉取收件箱邮件并导出 Excel
+
+    请求体:
+    {
+        "imap_host": "imap.exmail.qq.com",
+        "imap_port": 993,
+        "email": "xxx@csdn.net",
+        "password": "xxx",
+        "start_date": "2026-05-01",    # 可选，默认近 7 天
+        "end_date": "2026-05-09",      # 可选，含当日
+        "folder": "INBOX",             # 可选
+        "include_body": true            # 是否包含正文内容
+    }
+    """
+    data = request.json or {}
+    imap_host = data.get("imap_host") or os.environ.get("IMAP_HOST", "imap.exmail.qq.com")
+    imap_port = int(data.get("imap_port") or os.environ.get("IMAP_PORT", 993))
+    email_addr = data.get("email") or os.environ.get("SENDER_EMAIL", "")
+    password = data.get("password") or os.environ.get("SENDER_PASSWORD", "")
+    start_date = data.get("start_date", "").strip()
+    end_date = data.get("end_date", "").strip()
+    folder = data.get("folder", "INBOX") or "INBOX"
+    include_body = data.get("include_body", True)
+
+    if not email_addr or not password:
+        return jsonify({"error": "请填写邮箱和密码"}), 400
+
+    # 日期默认值：近 7 天
+    try:
+        if end_date:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+        else:
+            end_dt = datetime.now()
+        if start_date:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        else:
+            start_dt = end_dt - timedelta(days=7)
+    except ValueError as e:
+        return jsonify({"error": f"日期格式错误，应为 YYYY-MM-DD: {e}"}), 400
+
+    if start_dt > end_dt:
+        return jsonify({"error": "开始日期不能晚于结束日期"}), 400
+
+    task_id = str(uuid.uuid4())[:8]
+    inbox_tasks[task_id] = {
+        "status": "running",
+        "total": 0,
+        "fetched": 0,
+        "message": "正在连接 IMAP...",
+        "file": None,
+        "error": None,
+    }
+
+    import threading
+    t = threading.Thread(
+        target=_inbox_export_worker,
+        args=(task_id, imap_host, imap_port, email_addr, password,
+              start_dt, end_dt, folder, include_body),
+        daemon=True,
+    )
+    t.start()
+
+    return jsonify({
+        "task_id": task_id,
+        "start_date": start_dt.strftime("%Y-%m-%d"),
+        "end_date": end_dt.strftime("%Y-%m-%d"),
+    })
+
+
+@app.route("/api/export-status/<task_id>")
+def export_status(task_id):
+    """查询导出进度"""
+    task = inbox_tasks.get(task_id)
+    if not task:
+        return jsonify({"error": "任务不存在"}), 404
+    return jsonify(task)
+
+
+@app.route("/api/download-export/<task_id>")
+def download_export(task_id):
+    """下载导出的 Excel 文件"""
+    task = inbox_tasks.get(task_id)
+    if not task or not task.get("file"):
+        return jsonify({"error": "文件不存在"}), 404
+    fpath = EXPORT_DIR / task["file"]
+    if not fpath.exists():
+        return jsonify({"error": "文件已被清理"}), 404
+    return send_file(str(fpath), as_attachment=True, download_name=task["file"])
+
+
+def _inbox_export_worker(task_id, imap_host, imap_port, email_addr, password,
+                         start_dt, end_dt, folder, include_body):
+    """后台 IMAP 拉取线程"""
+    task = inbox_tasks[task_id]
+    imap = None
+    try:
+        task["message"] = f"连接 {imap_host}:{imap_port} ..."
+        imap = imaplib.IMAP4_SSL(imap_host, imap_port, timeout=30)
+        imap.login(email_addr, password)
+
+        # 选择文件夹（有的服务商文件夹名为中文，用引号包裹）
+        try:
+            status, _ = imap.select(folder, readonly=True)
+        except Exception:
+            status = "NO"
+        if status != "OK":
+            status, _ = imap.select(f'"{folder}"', readonly=True)
+        if status != "OK":
+            raise RuntimeError(f"无法打开文件夹: {folder}")
+
+        # 使用 IMAP SINCE/BEFORE 过滤；BEFORE 是不含当日，所以 +1
+        since_str = start_dt.strftime("%d-%b-%Y")
+        before_str = (end_dt + timedelta(days=1)).strftime("%d-%b-%Y")
+        task["message"] = f"搜索 {since_str} 到 {end_dt.strftime('%d-%b-%Y')} 的邮件..."
+        status, search_data = imap.search(None, "SINCE", since_str, "BEFORE", before_str)
+        if status != "OK":
+            raise RuntimeError(f"搜索失败: {status}")
+
+        ids = search_data[0].split() if search_data and search_data[0] else []
+        task["total"] = len(ids)
+        task["message"] = f"共找到 {len(ids)} 封邮件，开始拉取..."
+
+        emails = []
+        for idx, num in enumerate(ids, 1):
+            try:
+                status, msg_data = imap.fetch(num, "(RFC822)")
+                if status != "OK" or not msg_data or not msg_data[0]:
+                    continue
+                raw = msg_data[0][1]
+                msg = email_mod.message_from_bytes(raw)
+
+                date_obj = _parse_email_date(msg.get("Date", ""))
+                # 再次按日期范围过滤（IMAP 服务器时区偏差兜底）
+                if date_obj:
+                    if date_obj.date() < start_dt.date() or date_obj.date() > end_dt.date():
+                        task["fetched"] = idx
+                        continue
+
+                from_raw = msg.get("From", "")
+                from_name, from_email = parseaddr(from_raw)
+                from_name = _decode_mime_str(from_name)
+                subject = _decode_mime_str(msg.get("Subject", ""))
+                body = _extract_body(msg) if include_body else ""
+
+                emails.append({
+                    "date": date_obj.strftime("%Y-%m-%d %H:%M:%S") if date_obj else "",
+                    "date_only": date_obj.strftime("%Y-%m-%d") if date_obj else "",
+                    "from_email": from_email,
+                    "from_name": from_name,
+                    "subject": subject,
+                    "body": body,
+                })
+            except Exception as e:
+                task["message"] = f"第 {idx} 封邮件解析失败: {e}"
+            task["fetched"] = idx
+
+        # 按日期升序排列
+        emails.sort(key=lambda x: x["date"])
+
+        task["message"] = f"正在生成 Excel（{len(emails)} 条记录）..."
+        filename = f"inbox_{start_dt.strftime('%Y%m%d')}-{end_dt.strftime('%Y%m%d')}_{task_id}.xlsx"
+        out_path = EXPORT_DIR / filename
+        _write_inbox_xlsx(out_path, emails)
+
+        task["file"] = filename
+        task["count"] = len(emails)
+        task["status"] = "done"
+        task["message"] = f"导出完成，共 {len(emails)} 条"
+
+    except Exception as e:
+        task["status"] = "error"
+        task["error"] = str(e)
+        task["message"] = f"导出失败: {e}"
+    finally:
+        if imap is not None:
+            try:
+                imap.logout()
+            except Exception:
+                pass
+
+
+def _decode_mime_str(s):
+    """解码邮件头中的 MIME 编码字符串（如 =?UTF-8?B?...?=）"""
+    if not s:
+        return ""
+    try:
+        parts = decode_header(s)
+        out = []
+        for text, charset in parts:
+            if isinstance(text, bytes):
+                try:
+                    out.append(text.decode(charset or "utf-8", errors="replace"))
+                except LookupError:
+                    out.append(text.decode("utf-8", errors="replace"))
+            else:
+                out.append(text)
+        return "".join(out).strip()
+    except Exception:
+        return str(s)
+
+
+def _parse_email_date(date_str):
+    """解析邮件 Date 头为 datetime 对象"""
+    if not date_str:
+        return None
+    try:
+        dt = parsedate_to_datetime(date_str)
+        # 转为本地时间（去除时区信息以便统一比较）
+        if dt.tzinfo is not None:
+            dt = dt.astimezone().replace(tzinfo=None)
+        return dt
+    except Exception:
+        return None
+
+
+def _extract_body(msg):
+    """从 email.message.Message 提取正文文本（优先纯文本，其次 HTML 去标签）"""
+    text_body = ""
+    html_body = ""
+
+    if msg.is_multipart():
+        for part in msg.walk():
+            ctype = part.get_content_type()
+            disp = str(part.get("Content-Disposition", ""))
+            if "attachment" in disp.lower():
+                continue
+            if ctype == "text/plain" and not text_body:
+                text_body = _decode_payload(part)
+            elif ctype == "text/html" and not html_body:
+                html_body = _decode_payload(part)
+    else:
+        ctype = msg.get_content_type()
+        if ctype == "text/plain":
+            text_body = _decode_payload(msg)
+        elif ctype == "text/html":
+            html_body = _decode_payload(msg)
+
+    if text_body.strip():
+        return text_body.strip()
+    if html_body.strip():
+        return _html_to_text(html_body).strip()
+    return ""
+
+
+def _decode_payload(part):
+    """解码邮件正文 payload"""
+    try:
+        payload = part.get_payload(decode=True)
+        if payload is None:
+            return ""
+        charset = part.get_content_charset() or "utf-8"
+        try:
+            return payload.decode(charset, errors="replace")
+        except LookupError:
+            return payload.decode("utf-8", errors="replace")
+    except Exception:
+        return ""
+
+
+def _html_to_text(html):
+    """简单的 HTML 转纯文本（去标签、还原常用实体）"""
+    text = re.sub(r"<br\s*/?>", "\n", html, flags=re.IGNORECASE)
+    text = re.sub(r"</p>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"<[^>]+>", "", text)
+    text = (text
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", '"')
+            .replace("&#39;", "'"))
+    text = re.sub(r"\n\s*\n", "\n\n", text)
+    return text
+
+
+def _write_inbox_xlsx(out_path, emails):
+    """将邮件列表写入 Excel（日期、邮箱地址、回复内容）"""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "收件箱"
+
+    headers = ["日期", "邮件地址", "发件人", "主题", "回复内容"]
+    ws.append(headers)
+
+    # 表头样式
+    header_font = Font(bold=True, color="FFFFFF", name="PingFang SC")
+    header_fill = PatternFill("solid", fgColor="525AF7")
+    for col_idx, _ in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    # 数据行
+    for item in emails:
+        ws.append([
+            item.get("date", ""),
+            item.get("from_email", ""),
+            item.get("from_name", ""),
+            item.get("subject", ""),
+            _truncate_excel(item.get("body", "")),
+        ])
+
+    # 列宽
+    widths = [20, 32, 20, 40, 80]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+
+    # 正文列自动换行
+    for row in ws.iter_rows(min_row=2, min_col=5, max_col=5):
+        for cell in row:
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
+
+    ws.freeze_panes = "A2"
+    wb.save(str(out_path))
+    wb.close()
+
+
+def _truncate_excel(text, limit=32000):
+    """Excel 单元格最多 32767 字符，超出截断"""
+    if not text:
+        return ""
+    if len(text) > limit:
+        return text[:limit] + "\n...(内容过长已截断)"
+    return text
 
 
 # ── 工具函数 ──────────────────────────────────────────────────────────────────

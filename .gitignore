@@ -8,6 +8,7 @@ __pycache__/
 # 运行时目录
 uploads/
 attachments/
+exports/
 
 # 敏感业务数据 - 不提交真实选手资料和邮件列表
 files/
